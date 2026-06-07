@@ -10,7 +10,7 @@ archive and faithfully restored on another device with ownership and SELinux con
 
 ---
 
-**[⬇ Download APK](https://github.com/zorg/aetherpak/releases)** &nbsp;·&nbsp; **[Documentation](#)** &nbsp;·&nbsp; **[Report Bug](https://github.com/zorg/aetherpak/issues)**
+**[⬇ Download APK](https://github.com/scartheseller72-max/AetherPak/releases)** &nbsp;·&nbsp; **[Documentation](#)** &nbsp;·&nbsp; **[Report Bug](https://github.com/scartheseller72-max/AetherPak/issues)**
 
 </div>
 
