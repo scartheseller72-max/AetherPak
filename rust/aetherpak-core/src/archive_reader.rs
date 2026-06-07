@@ -154,6 +154,9 @@ pub struct ArchiveReaderHandle {
 
 impl ArchiveReaderHandle {
     pub fn open(in_path: &str, codec: Codec) -> CoreResult<Self> {
+        let spill_dir = std::path::Path::new(in_path)
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."));
         let backend = match codec {
             Codec::Zstd => {
                 let file = File::open(in_path)?;
@@ -166,9 +169,7 @@ impl ArchiveReaderHandle {
                 ReaderBackend::Zip(ZipState::new(zip))
             }
             Codec::SevenZip => {
-                // sevenz-rust decodes per-entry into a callback; spill each payload
-                // to a temp file so chunk reads stay constant-memory afterwards.
-                let entries = extract_seven(in_path)?;
+                let entries = extract_seven(in_path, spill_dir)?;
                 ReaderBackend::SevenZip {
                     entries,
                     index: 0,
@@ -347,7 +348,7 @@ impl ArchiveReaderHandle {
 }
 
 /// Decode every 7z entry to a temp file once, recording headers in order.
-fn extract_seven(in_path: &str) -> CoreResult<Vec<SevenEntry>> {
+fn extract_seven(in_path: &str, spill_dir: &std::path::Path) -> CoreResult<Vec<SevenEntry>> {
     use std::cell::RefCell;
     use std::io::Write as _;
 
@@ -373,7 +374,7 @@ fn extract_seven(in_path: &str) -> CoreResult<Vec<SevenEntry>> {
             });
             return Ok(true);
         }
-        let tmp = seven_temp_path(&name);
+        let tmp = seven_temp_path(spill_dir, &name);
         let mut f = std::io::BufWriter::new(
             File::create(&tmp).map_err(|e| sevenz_rust::Error::other(e.to_string()))?,
         );
@@ -408,8 +409,8 @@ fn extract_seven(in_path: &str) -> CoreResult<Vec<SevenEntry>> {
     Ok(out.into_inner())
 }
 
-fn seven_temp_path(name: &str) -> PathBuf {
-    let mut dir = std::env::temp_dir();
+fn seven_temp_path(spill_dir: &std::path::Path, name: &str) -> PathBuf {
+    let mut dir = spill_dir.to_path_buf();
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())

@@ -63,10 +63,15 @@ enum WriterBackend {
 /// Opaque handle returned to JNI as a `jlong`.
 pub struct ArchiveWriterHandle {
     backend: WriterBackend,
+    spill_dir: PathBuf,
 }
 
 impl ArchiveWriterHandle {
     pub fn open(out_path: &str, codec: Codec, level: i32) -> CoreResult<Self> {
+        let spill_dir = Path::new(out_path)
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
         let backend = match codec {
             Codec::Zstd => {
                 let file = File::create(out_path)?;
@@ -104,7 +109,7 @@ impl ArchiveWriterHandle {
                 }
             }
         };
-        Ok(ArchiveWriterHandle { backend })
+        Ok(ArchiveWriterHandle { backend, spill_dir })
     }
 
     /// Begin a new entry. For directories / symlinks the header is written
@@ -140,7 +145,7 @@ impl ArchiveWriterHandle {
                     tar.append_data(&mut h, sanitize(&meta.path), std::io::empty())?;
                 } else {
                     // Regular file: spill payload to a temp file, add at close_entry().
-                    let tmp = temp_spill_path(&meta.path);
+                    let tmp = temp_spill_path(&self.spill_dir, &meta.path);
                     let f = OpenOptions::new()
                         .create(true)
                         .write(true)
@@ -206,7 +211,7 @@ impl ArchiveWriterHandle {
                     let entry = make_seven_entry(&sanitize_string(&meta.path), meta.is_dir);
                     writer.push_archive_entry(entry, Some(std::io::Cursor::new(body)))?;
                 } else {
-                    let tmp = temp_spill_path(&meta.path);
+                    let tmp = temp_spill_path(&self.spill_dir, &meta.path);
                     let f = OpenOptions::new()
                         .create(true)
                         .write(true)
@@ -372,9 +377,9 @@ fn sanitize_string(path: &str) -> String {
     parts.join("/")
 }
 
-/// Build a unique temp spill path for an entry payload.
-fn temp_spill_path(path: &str) -> PathBuf {
-    let mut dir = std::env::temp_dir();
+/// Build a unique temp spill path for an entry payload within the given base directory.
+fn temp_spill_path(base: &Path, path: &str) -> PathBuf {
+    let mut dir = base.to_path_buf();
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
