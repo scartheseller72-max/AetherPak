@@ -1,0 +1,5 @@
+# Placeholder so the jniLibs source set exists in VCS.
+# CI (cargo-ndk) drops the per-ABI libaetherpak.so files alongside this file:
+#   arm64-v8a/libaetherpak.so
+#   armeabi-v7a/libaetherpak.so
+#   x86_64/libaetherpak.so

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Required so the orchestrating app can drive package installation. Actual
+      install is performed via the elevated `pm install-create/-write/-commit`
+      session through the AccessProvider, but this permission keeps the intent
+      explicit for the merged app manifest.
+    -->
+    <uses-permission
+        android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+        tools:ignore="ProtectedPermissions" />
+
+</manifest>

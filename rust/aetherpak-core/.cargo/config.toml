@@ -1,0 +1,28 @@
+# Android cross-compilation targets for AetherPak native core.
+#
+# The actual linker wiring is supplied by `cargo-ndk`, which injects the correct
+# NDK clang/ar for each ABI. CI invokes e.g.:
+#
+#   cargo ndk \
+#     -t aarch64-linux-android \
+#     -t armv7-linux-androideabi \
+#     -t x86_64-linux-android \
+#     -o ../../core/compress/src/main/jniLibs \
+#     build --release
+#
+# cargo-ndk then drops libaetherpak.so into:
+#   core/compress/src/main/jniLibs/arm64-v8a/libaetherpak.so
+#   core/compress/src/main/jniLibs/armeabi-v7a/libaetherpak.so
+#   core/compress/src/main/jniLibs/x86_64/libaetherpak.so
+#
+# These bare target stanzas exist so `cargo build --target <abi>` is recognized
+# even outside cargo-ndk; cargo-ndk overrides the linker per ABI at invoke time.
+
+[build]
+# Default host build only; real cross builds go through cargo-ndk.
+
+[target.aarch64-linux-android]
+
+[target.armv7-linux-androideabi]
+
+[target.x86_64-linux-android]

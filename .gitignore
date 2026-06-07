@@ -1,0 +1,22 @@
+# Gradle / Android
+.gradle/
+build/
+*/build/
+local.properties
+keystore.properties
+*.keystore
+*.jks
+.cxx/
+
+# Rust
+rust/aetherpak-core/target/
+**/*.rs.bk
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+.kotlin/
+
+# Gradle wrapper jar (regenerated via `gradle wrapper`)
+gradle/wrapper/gradle-wrapper.jar

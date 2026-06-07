@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AetherPak</string>
+
+    <!-- Navigation / titles -->
+    <string name="title_home">Apps</string>
+    <string name="title_backup">Back up</string>
+    <string name="title_restore">Restore</string>
+    <string name="title_backup_detail">Backup detail</string>
+    <string name="title_settings">Settings</string>
+    <string name="title_access_setup">Access setup</string>
+
+    <!-- Common -->
+    <string name="action_retry">Retry</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_start_backup">Start backup</string>
+    <string name="action_start_restore">Start restore</string>
+    <string name="action_pick_file">Pick .ark file</string>
+
+    <!-- Home -->
+    <string name="home_search_hint">Search apps</string>
+    <string name="home_show_system">Show system apps</string>
+    <string name="home_empty">No apps found.</string>
+
+    <!-- Capability copy (honest) -->
+    <string name="cap_root_title">Root access — full backup</string>
+    <string name="cap_root_desc">A real superuser shell can read and write private app data (/data/data), fix ownership and SELinux labels. This is the only mode that produces a complete backup including user data.</string>
+    <string name="cap_shizuku_title">Shizuku access — partial backup</string>
+    <string name="cap_shizuku_desc">Shizuku runs as the ADB shell user (UID 2000). The Android sandbox prevents it from reading another app’s private /data/data directory, so private app data CANNOT be backed up. APK install, OBB and external/shared data still work.</string>
+    <string name="cap_none_title">No access</string>
+    <string name="cap_none_desc">No root or Shizuku backend is available. Grant one in Access Setup to enable backups.</string>
+
+    <string name="banner_shizuku_only">Shizuku mode: private app data is unavailable. Backups will be partial (APK + OBB + external data only).</string>
+    <string name="toggle_private_disabled_reason">Private data requires Root. The current access mode (Shizuku) cannot read /data/data.</string>
+
+    <!-- Backup -->
+    <string name="backup_codec_label">Compression codec</string>
+    <string name="backup_include_private">Include private data (/data/data)</string>
+    <string name="backup_include_obb">Include OBB</string>
+    <string name="backup_include_external">Include external data</string>
+    <string name="backup_partial_warning">This backup will be PARTIAL — private app data is not included.</string>
+
+    <!-- Restore -->
+    <string name="restore_local_title">Local backups</string>
+    <string name="restore_external_title">External archive</string>
+    <string name="restore_empty">No local backups yet.</string>
+    <string name="restore_partial_warning">This archive is partial — private data was not captured and will not be restored.</string>
+    <string name="restore_manifest_preview">Manifest preview</string>
+
+    <!-- Settings / About -->
+    <string name="settings_access_mode">Preferred access mode</string>
+    <string name="settings_default_codec">Default codec</string>
+    <string name="settings_default_toggles">Default backup components</string>
+    <string name="settings_output_dir">Backup output directory</string>
+    <string name="settings_capabilities">Capabilities</string>
+    <string name="settings_about">About</string>
+    <string name="about_body">AetherPak is an owner-scoped, full app + data backup and migration tool. It is honest about what each privilege backend can and cannot do.</string>
+
+    <!-- Access setup -->
+    <string name="access_detect">Detect available backends</string>
+    <string name="access_grant">Request grant</string>
+    <string name="access_granted">Granted</string>
+    <string name="access_not_available">Not available on this device</string>
+</resources>
