@@ -35,11 +35,19 @@ class UserService : IUserService.Stub {
                 .redirectErrorStream(false)
                 .start()
 
+            // Drain stderr on a separate thread so a command that fills the stderr pipe
+            // buffer (~64 KB) before closing stdout can't deadlock: otherwise the child
+            // blocks writing stderr while we block reading stdout to EOF.
+            val stderrLines = ArrayList<String>()
+            val stderrThread = Thread {
+                stderrLines.addAll(readStream(process.errorStream))
+            }.apply { start() }
+
             val stdout = readStream(process.inputStream)
-            val stderr = readStream(process.errorStream)
+            stderrThread.join()
             val code = process.waitFor()
 
-            frameResult(code, stdout, stderr)
+            frameResult(code, stdout, stderrLines)
         } catch (t: Throwable) {
             frameResult(-1, emptyList(), listOf(t.message ?: t.javaClass.simpleName))
         }

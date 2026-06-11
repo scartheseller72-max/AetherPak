@@ -27,18 +27,22 @@ impl Codec {
     /// (sevenz-rust uses its built-in LZMA2 defaults).
     pub fn effective_level(self, level: i32) -> i32 {
         match self {
+            // zstd accepts 1..=22; clamp so an out-of-range caller value can't reach
+            // `zstd::Encoder::new` and fail the whole backup.
             Codec::Zstd => {
                 if level == 0 {
                     9
                 } else {
-                    level
+                    level.clamp(1, 22)
                 }
             }
+            // deflate (zip 0.6) only accepts 0..=9; clamp to avoid a hard error at
+            // `start_file` when a shared/zstd-shaped level leaks into a ZIP backup.
             Codec::Zip => {
                 if level == 0 {
                     6
                 } else {
-                    level
+                    level.clamp(1, 9)
                 }
             }
             Codec::SevenZip => level,

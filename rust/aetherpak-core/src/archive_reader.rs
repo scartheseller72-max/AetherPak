@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 use tar::{Archive as TarArchive, Entries, EntryType};
 
-use crate::codec::{Codec, CoreResult};
+use crate::codec::{Codec, CoreError, CoreResult};
 
 /// Header surfaced to the JNI layer; serialized to JSON for `readNextEntry`.
 pub struct EntryHeader {
@@ -67,15 +67,25 @@ struct ZstdState {
 }
 
 impl ZstdState {
-    fn new(dec: ZstdDec) -> Self {
+    fn new(dec: ZstdDec) -> CoreResult<Self> {
         let archive = Box::into_raw(Box::new(TarArchive::new(dec)));
-        let it = unsafe { (*archive).entries().expect("tar entries") };
+        // A malformed/truncated archive can make `entries()` fail. Surface it as a
+        // recoverable error rather than panicking — `panic = "abort"` would otherwise
+        // turn untrusted input into a full process crash across the JNI boundary.
+        let it = match unsafe { (*archive).entries() } {
+            Ok(it) => it,
+            Err(e) => {
+                // Reclaim the leaked archive box before returning.
+                unsafe { drop(Box::from_raw(archive)) };
+                return Err(CoreError::from(e));
+            }
+        };
         let entries = Box::into_raw(Box::new(it));
-        ZstdState {
+        Ok(ZstdState {
             archive,
             entries,
             current: None,
-        }
+        })
     }
 }
 
@@ -161,7 +171,7 @@ impl ArchiveReaderHandle {
             Codec::Zstd => {
                 let file = File::open(in_path)?;
                 let dec = zstd::stream::read::Decoder::new(file)?;
-                ReaderBackend::Zstd(ZstdState::new(dec))
+                ReaderBackend::Zstd(ZstdState::new(dec)?)
             }
             Codec::Zip => {
                 let file = File::open(in_path)?;
