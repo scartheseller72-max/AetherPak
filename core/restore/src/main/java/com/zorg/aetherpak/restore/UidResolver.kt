@@ -72,12 +72,26 @@ object UidResolver {
      * Returns -1 only if every strategy fails (caller must treat that as PERMISSION_FIX_FAILED).
      */
     suspend fun resolveAppUid(access: AccessProvider, pkg: String): Int = withContext(Dispatchers.IO) {
+        // `pkg` originates from the untrusted archive manifest and is interpolated into root
+        // shell commands below. A valid Android package name is only [A-Za-z0-9._]; reject
+        // anything else outright so a crafted manifest can't inject a command.
+        if (!isValidPackageName(pkg)) return@withContext -1
         parseFromPackagesList(access, pkg)
             .takeIf { it > 0 }
             ?: parseFromStat(access, pkg).takeIf { it > 0 }
             ?: parseFromDumpsys(access, pkg).takeIf { it > 0 }
             ?: -1
     }
+
+    private val PACKAGE_NAME_REGEX = Regex("^[A-Za-z0-9._]+$")
+
+    /** A defensive check matching Android's own package-name character set. */
+    fun isValidPackageName(pkg: String): Boolean =
+        pkg.isNotEmpty() && pkg.length <= 255 && PACKAGE_NAME_REGEX.matches(pkg)
+
+    /** Single-quote a value for safe shell interpolation. */
+    private fun shellQuote(s: String): String =
+        if (s.isEmpty()) "''" else "'" + s.replace("'", "'\\''") + "'"
 
     private suspend fun parseFromPackagesList(access: AccessProvider, pkg: String): Int {
         // grep the exact package token at line start; fall back to a plain cat if grep is absent.
@@ -99,13 +113,13 @@ object UidResolver {
 
     private suspend fun parseFromStat(access: AccessProvider, pkg: String): Int {
         val dataDir = AetherPaths.privateData(pkg)
-        val res = access.exec("stat -c %u $dataDir")
+        val res = access.exec("stat -c %u ${shellQuote(dataDir)}")
         if (!res.isSuccess) return -1
         return res.stdout.firstOrNull { it.isNotBlank() }?.trim()?.toIntOrNull() ?: -1
     }
 
     private suspend fun parseFromDumpsys(access: AccessProvider, pkg: String): Int {
-        val res = access.exec("dumpsys package $pkg")
+        val res = access.exec("dumpsys package ${shellQuote(pkg)}")
         if (!res.isSuccess) return -1
         // Look for a token like "userId=10234".
         val match = res.stdout.firstNotNullOfOrNull { line ->

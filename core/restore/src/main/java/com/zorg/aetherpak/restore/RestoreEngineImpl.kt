@@ -182,6 +182,13 @@ class RestoreEngineImpl(
                         drainEntryDiscard(reader)
                         continue
                     }
+                    // A crafted manifest can point devicePath anywhere; refuse to write outside
+                    // the package's own roots for this prefix.
+                    if (!isDevicePathAllowed(devicePath, prefix, pkg)) {
+                        warnings += "Skipped entry with out-of-bounds target path: $devicePath"
+                        drainEntryDiscard(reader)
+                        continue
+                    }
 
                     when {
                         header.isDirectory -> {
@@ -286,7 +293,11 @@ class RestoreEngineImpl(
                         drainEntryDiscard(reader)
                         continue
                     }
-                    val out = File(tmpDir, entryLeafName(ap))
+                    // Sanitize the on-disk name: the archive entry name is attacker-influenced and
+                    // is later interpolated into a shell `pm install-write` command.
+                    val safeLeaf = entryLeafName(ap).replace(Regex("[^A-Za-z0-9._-]"), "_")
+                        .ifEmpty { "base_${apks.size}.apk" }
+                    val out = File(tmpDir, safeLeaf)
                     out.outputStream().use { os ->
                         val buf = ByteArray(CHUNK)
                         var n = reader.read(buf)
@@ -316,7 +327,7 @@ class RestoreEngineImpl(
                 coroutineContext.ensureActive()
                 val size = f.length()
                 val safeName = f.name.replace(Regex("[^A-Za-z0-9._-]"), "_")
-                val write = access.exec("pm install-write -S $size $sessionId $safeName ${f.absolutePath}")
+                val write = access.exec("pm install-write -S $size $sessionId $safeName ${shellQuote(f.absolutePath)}")
                 if (!write.isSuccess) {
                     access.exec("pm install-abandon $sessionId")
                     return OpResult.fail(ErrorCode.INSTALL_FAILED, "install-write failed for ${f.name}: ${write.err}")
@@ -367,7 +378,7 @@ class RestoreEngineImpl(
     private suspend fun recreateSymlink(target: String, linkPath: String) {
         val parent = linkPath.substringBeforeLast('/', "")
         if (parent.isNotEmpty()) access.mkdirs(parent)
-        access.exec("ln -s '${shellEscape(target)}' '${shellEscape(linkPath)}'")
+        access.exec("ln -s ${shellQuote(target)} ${shellQuote(linkPath)}")
     }
 
     /** Read an entry fully into memory (used only for the small manifest). */
@@ -415,5 +426,36 @@ class RestoreEngineImpl(
 
     private fun entryLeafName(path: String): String = path.trimEnd('/').substringAfterLast('/')
 
-    private fun shellEscape(s: String): String = s.replace("'", "'\\''")
+    /** Single-quote a value for safe shell interpolation, escaping embedded single quotes. */
+    private fun shellQuote(s: String): String {
+        if (s.isEmpty()) return "''"
+        return "'" + s.replace("'", "'\\''") + "'"
+    }
+
+    /**
+     * Guard against a crafted manifest steering writes outside the package's own data roots.
+     * `meta.devicePath` is attacker-controlled JSON inside the archive, so a value like
+     * `/data/data/com.bank.app/...` or `/system/...` must never be honored. We accept a path
+     * only when it is contained (segment-aware) within one of the legitimate roots for [pkg]
+     * matching the entry's archive [prefix].
+     */
+    private fun isDevicePathAllowed(devicePath: String, prefix: String, pkg: String): Boolean {
+        val allowedRoots = when (prefix) {
+            AetherPaths.ARCHIVE_DIR_PRIVATE -> listOf(
+                AetherPaths.privateData(pkg),
+                AetherPaths.userPrivateData(pkg),
+                AetherPaths.deData(pkg)
+            )
+            AetherPaths.ARCHIVE_DIR_OBB -> listOf(AetherPaths.obbDir(pkg))
+            AetherPaths.ARCHIVE_DIR_EXTDATA -> listOf(AetherPaths.externalDataDir(pkg))
+            // MEDIA paths are user content on shared storage; confine to /sdcard.
+            AetherPaths.ARCHIVE_DIR_MEDIA -> listOf("/sdcard", "/storage/emulated/0")
+            else -> return false
+        }
+        // Reject any `..` traversal before comparing, then require a real root containment.
+        if (devicePath.split('/').any { it == ".." }) return false
+        return allowedRoots.any { root ->
+            devicePath == root || devicePath.startsWith("$root/")
+        }
+    }
 }
